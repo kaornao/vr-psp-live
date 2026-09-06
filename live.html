@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VR / PSP 实时开播看板</title>
+  <style>
+    :root {
+      --bg: #0f1218;
+      --panel: #171c26;
+      --text: #e8ecf4;
+      --muted: #8b95a8;
+      --vr: #5b8cff;
+      --psp: #ff7ab6;
+      --live: #3dd68c;
+      --border: #2a3344;
+      --warn: #ffb020;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #1a2740 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 1.25rem 1.5rem 0.35rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+    h1 { font-size: 1.35rem; font-weight: 650; margin: 0; }
+    .meta { color: var(--muted); font-size: 0.85rem; }
+    .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--live);
+      margin-right: 6px;
+      box-shadow: 0 0 0 0 rgba(61,214,140,.5);
+      animation: pulse 1.6s infinite;
+    }
+    .dot.off { background: var(--warn); animation: none; }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(61,214,140,.45); }
+      70% { box-shadow: 0 0 0 8px rgba(61,214,140,0); }
+      100% { box-shadow: 0 0 0 0 rgba(61,214,140,0); }
+    }
+    .blurb {
+      padding: 0 1.5rem 0.85rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      max-width: 52rem;
+      line-height: 1.5;
+    }
+    .stats { display: flex; gap: 0.6rem; flex-wrap: wrap; padding: 0 1.5rem 1rem; }
+    .pill {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.35rem 0.85rem;
+      font-size: 0.85rem;
+    }
+    .pill strong { color: var(--live); }
+    .pill.vr strong { color: var(--vr); }
+    .pill.psp strong { color: var(--psp); }
+    .toolbar {
+      padding: 0 1.5rem 1rem;
+      display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
+    }
+    button, select {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.4rem 0.75rem;
+      cursor: pointer;
+    }
+    button:hover { border-color: #4a5a75; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 0.85rem;
+      padding: 0 1.5rem 2rem;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .15s, transform .15s;
+    }
+    .card:hover { border-color: #4d6288; transform: translateY(-1px); }
+    .cover {
+      aspect-ratio: 16/9;
+      background: #0a0d12 center/cover no-repeat;
+      position: relative;
+    }
+    .badge {
+      position: absolute;
+      top: 8px; left: 8px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.45rem;
+      border-radius: 6px;
+      background: rgba(0,0,0,.55);
+    }
+    .badge.vr { color: var(--vr); }
+    .badge.psp { color: var(--psp); }
+    .online {
+      position: absolute;
+      top: 8px; right: 8px;
+      font-size: 0.7rem;
+      padding: 0.2rem 0.45rem;
+      border-radius: 6px;
+      background: rgba(61,214,140,.18);
+      color: var(--live);
+    }
+    .body { padding: 0.75rem 0.85rem 0.95rem; }
+    .name { font-weight: 650; margin: 0 0 0.25rem; }
+    .title { color: var(--muted); font-size: 0.85rem; line-height: 1.35; margin: 0; }
+    .area { color: var(--muted); font-size: 0.75rem; margin-top: 0.45rem; }
+    .empty {
+      margin: 2rem 1.5rem;
+      padding: 1.5rem;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .err { color: #ff8e8e; padding: 0 1.5rem 1rem; }
+    footer {
+      padding: 0 1.5rem 2rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>VirtuaReal / P-SP 实时开播看板</h1>
+    <div class="meta" id="updated"><span class="dot off" id="dot"></span>连接中…</div>
+  </header>
+  <p class="blurb">页面自动刷新，无需你手动更新。请保持黑窗口（start-live.bat）开着；关掉就停更。</p>
+  <div class="stats" id="stats"></div>
+  <div class="toolbar">
+    <label>筛选
+      <select id="filter">
+        <option value="ALL">全部</option>
+        <option value="VR">仅 VR</option>
+        <option value="PSP">仅 PSP</option>
+      </select>
+    </label>
+    <button type="button" id="reload">立即刷新显示</button>
+    <span class="meta" id="tick">每 10 秒读一次最新数据</span>
+  </div>
+  <div id="err" class="err" hidden></div>
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty" hidden>当前没有人在播。</div>
+  <footer>非官方工具。名单来自 vtbs.moe VDB，开播状态来自 B 站公开接口。</footer>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let cache = null;
+
+    function fmtNum(n) {
+      n = Number(n) || 0;
+      if (n >= 10000) return (n / 10000).toFixed(1) + "万";
+      return String(n);
+    }
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function render() {
+      if (!cache) return;
+      const filter = $("filter").value;
+      const live = (cache.live || []).filter(r => filter === "ALL" || r.bucket === filter);
+      const c = cache.counts || {};
+      $("stats").innerHTML = [
+        `<span class="pill">开播 <strong>${c.live ?? 0}</strong> / 名单 ${c.roster ?? 0}</span>`,
+        `<span class="pill vr">VR <strong>${c.VR_live ?? 0}</strong></span>`,
+        `<span class="pill psp">PSP <strong>${c.PSP_live ?? 0}</strong></span>`,
+      ].join("");
+      const grid = $("grid");
+      grid.innerHTML = "";
+      if (!live.length) {
+        $("empty").hidden = false;
+        return;
+      }
+      $("empty").hidden = true;
+      for (const r of live) {
+        const a = document.createElement("a");
+        a.className = "card";
+        a.href = r.live_url || `https://space.bilibili.com/${r.uid}`;
+        a.target = "_blank";
+        a.rel = "noopener";
+        const cover = (r.cover || "").replace(/'/g, "%27");
+        a.innerHTML = `
+          <div class="cover" style="background-image:url('${cover}')">
+            <span class="badge ${r.bucket === "PSP" ? "psp" : "vr"}">${r.bucket}</span>
+            <span class="online">${fmtNum(r.online)} 人气</span>
+          </div>
+          <div class="body">
+            <p class="name">${escapeHtml(r.name)}</p>
+            <p class="title">${escapeHtml(r.title || "（无标题）")}</p>
+            <div class="area">${escapeHtml([r.parent_area, r.area].filter(Boolean).join(" · "))}</div>
+          </div>`;
+        grid.appendChild(a);
+      }
+    }
+
+    async function load() {
+      try {
+        const res = await fetch("/api/live?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const payload = await res.json();
+        if (!payload.data) {
+          $("dot").classList.add("off");
+          $("updated").innerHTML = `<span class="dot off" id="dot"></span>等待首次数据…`;
+          if (payload.error) {
+            $("err").hidden = false;
+            $("err").textContent = "刷新失败: " + payload.error;
+          }
+          return;
+        }
+        cache = payload.data;
+        $("err").hidden = true;
+        $("dot").classList.remove("off");
+        const tip = payload.refreshing ? "（后台正在向 B 站更新）" : "";
+        $("updated").innerHTML = `<span class="dot" id="dot"></span>数据更新于 ${cache.updated_at || "—"} ${tip}`;
+        render();
+      } catch (e) {
+        $("dot").classList.add("off");
+        $("err").hidden = false;
+        $("err").textContent = "连不上实时服务。请先双击 start-live.bat，并保持黑窗口不要关。";
+        $("updated").innerHTML = `<span class="dot off" id="dot"></span>未连接`;
+      }
+    }
+
+    $("filter").addEventListener("change", render);
+    $("reload").addEventListener("click", load);
+    load();
+    setInterval(load, 10000);
+  </script>
+</body>
+</html>

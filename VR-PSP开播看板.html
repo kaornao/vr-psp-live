@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="VirtuaReal / P-SP（PSPlive）B站开播看板" />
+  <title>VR / PSP 开播看板</title>
+  <style>
+    :root {
+      --bg: #0f1218;
+      --panel: #171c26;
+      --text: #e8ecf4;
+      --muted: #8b95a8;
+      --vr: #5b8cff;
+      --psp: #ff7ab6;
+      --live: #3dd68c;
+      --border: #2a3344;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #1a2740 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 1.25rem 1.5rem 0.35rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+    h1 { font-size: 1.35rem; font-weight: 650; margin: 0; }
+    .meta { color: var(--muted); font-size: 0.85rem; }
+    .blurb {
+      padding: 0 1.5rem 0.85rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      max-width: 52rem;
+      line-height: 1.5;
+    }
+    .stats { display: flex; gap: 0.6rem; flex-wrap: wrap; padding: 0 1.5rem 1rem; }
+    .pill {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.35rem 0.85rem;
+      font-size: 0.85rem;
+    }
+    .pill strong { color: var(--live); }
+    .pill.vr strong { color: var(--vr); }
+    .pill.psp strong { color: var(--psp); }
+    .toolbar {
+      padding: 0 1.5rem 1rem;
+      display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
+    }
+    button, select {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.4rem 0.75rem;
+      cursor: pointer;
+    }
+    button:hover { border-color: #4a5a75; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 0.85rem;
+      padding: 0 1.5rem 2rem;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .15s, transform .15s;
+    }
+    .card:hover { border-color: #4d6288; transform: translateY(-1px); }
+    .cover {
+      aspect-ratio: 16/9;
+      background: #0a0d12 center/cover no-repeat;
+      position: relative;
+    }
+    .badge {
+      position: absolute;
+      top: 8px; left: 8px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.45rem;
+      border-radius: 6px;
+      background: rgba(0,0,0,.55);
+    }
+    .badge.vr { color: var(--vr); }
+    .badge.psp { color: var(--psp); }
+    .online {
+      position: absolute;
+      top: 8px; right: 8px;
+      font-size: 0.7rem;
+      padding: 0.2rem 0.45rem;
+      border-radius: 6px;
+      background: rgba(61,214,140,.18);
+      color: var(--live);
+    }
+    .body { padding: 0.75rem 0.85rem 0.95rem; }
+    .name { font-weight: 650; margin: 0 0 0.25rem; }
+    .title { color: var(--muted); font-size: 0.85rem; line-height: 1.35; margin: 0; }
+    .area { color: var(--muted); font-size: 0.75rem; margin-top: 0.45rem; }
+    .empty {
+      margin: 2rem 1.5rem;
+      padding: 1.5rem;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .err { color: #ff8e8e; padding: 0 1.5rem; }
+    footer {
+      padding: 0 1.5rem 2rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+    footer a { color: #9eb6ff; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>VirtuaReal / P-SP 开播看板</h1>
+    <div class="meta" id="updated">加载中…</div>
+  </header>
+  <p class="blurb" id="blurb">维阿（VirtuaReal）与 P-SP（PSPlive）当前开播成员。点卡片进直播间。</p>
+  <div class="stats" id="stats"></div>
+  <div class="toolbar">
+    <label>筛选
+      <select id="filter">
+        <option value="ALL">全部</option>
+        <option value="VR">仅 VR</option>
+        <option value="PSP">仅 PSP</option>
+      </select>
+    </label>
+    <button type="button" id="reload">刷新显示</button>
+  </div>
+  <div id="err" class="err" hidden></div>
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty" hidden>当前没有人在播。</div>
+  <footer>
+    名单来源 <a href="https://vdb.vtbs.moe/" rel="noopener" target="_blank">vtbs.moe VDB</a>；
+    开播状态来自 B 站公开接口。非官方工具。
+    本机请双击 <b>VR-PSP开播看板.html</b>，或运行 <b>一键本地预览.bat</b>（不要只开空的 index.html）。
+  </footer>
+
+  <script>window.__STATUS__ = {"updated_at": "2026-09-06T20:53:41+08:00", "counts": {"live": 27, "offline": 124, "roster": 151, "VR_live": 22, "PSP_live": 5}, "live": [{"uid": 1298779265, "name": "灰泽满Hazel", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "上课", "online": 437181, "room_id": 1713546334, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/a566da4e1e1919b16424bfb4e91cdc9feef353a2.jpg", "face": "https://i2.hdslb.com/bfs/face/e448d099a59f83695522323335812d82bda23d7f.jpg", "area": "虚拟日常", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/1713546334"}, {"uid": 7706705, "name": "阿梓从小就很可爱", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "唱歌加buff中。。", "online": 422790, "room_id": 80397, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/ca9e77ac4f98c5bc578727e350f0b91352c404d3.jpg", "face": "https://i2.hdslb.com/bfs/face/bd4253b0eb80684a86efa0097935004527bcc773.jpg", "area": "虚拟Singer", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/80397"}, {"uid": 56748733, "name": "雪绘", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "公式神人视频！", "online": 331017, "room_id": 21756924, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/d5cd0744d40c68c1f56ed95d914234be20586173.jpg", "face": "https://i1.hdslb.com/bfs/face/e0113d3eb1bbf3959f9bea56a806b013107334b7.jpg", "area": "其他单机", "parent_area": "单机游戏", "live_url": "https://live.bilibili.com/21756924"}, {"uid": 435243735, "name": "礼墨Sumi", "bucket": "PSP", "group_name": "P-SP", "live_status": 1, "title": "总之来聊天叭！", "online": 201058, "room_id": 23222837, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/7461289663be518bf13e4835ee1ed1aa1cad664c.jpg", "face": "https://i0.hdslb.com/bfs/face/14c39edb04b15b869d20ffe509d614b730492522.jpg", "area": "虚拟日常", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/23222837"}, {"uid": 2030198123, "name": "三理Mit3uri", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "嘟嘟登场！", "online": 161919, "room_id": 1967216004, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/fd2aad42cd9ac5e34156afd746461d381c631c9b.jpg", "face": "https://i2.hdslb.com/bfs/face/3dd1f948bef06a933084e7231fa0708bea6410aa.jpg", "area": "虚拟Singer", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/1967216004"}, {"uid": 1203217682, "name": "泽音Melody", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "泡泡堂，我回来了……", "online": 161062, "room_id": 1947277414, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/b4b7fd6c194a8bdafc012467c70ed488b87503e2.jpg", "face": "https://i2.hdslb.com/bfs/face/bf9ee18706751a9e21a13e6bc0d66977280165e3.jpg", "area": "虚拟日常", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/1947277414"}, {"uid": 1954091502, "name": "岁己SUI", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "陪你这个猪过周日！5070ti版", "online": 148033, "room_id": 25788785, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/2c8474e008292cbec7a988856707f24dcf301d91.jpg", "face": "https://i0.hdslb.com/bfs/face/1c12188cc2d29df877d162efd0cfe5589341f320.jpg", "area": "虚拟日常", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/25788785"}, {"uid": 690608698, "name": "瑞娅_Rhea", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "娘兽小队训练：其二", "online": 125934, "room_id": 23260993, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/e9fccfb7ce0063b2e5c742b955efa718b797af8e.jpg", "face": "https://i1.hdslb.com/bfs/face/07e717fe6d16793236cb56ad6c446e4b6c05cca9.jpg", "area": "虚拟Gamer", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/23260993"}, {"uid": 2091418780, "name": "克罗雅Kloa", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "水友游戏回~", "online": 123776, "room_id": 1986461465, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/3c6e07f3c7af32d61e40c29f0480a49b259bfc4f.jpg", "face": "https://i1.hdslb.com/bfs/face/41430e371376f3219405e6449f28527eaed3d2db.jpg", "area": "虚拟Gamer", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/1986461465"}, {"uid": 15641218, "name": "帅比笙歌超可爱OvO", "bucket": "PSP", "group_name": "P-SP", "live_status": 1, "title": "你能跟我有话说不", "online": 122300, "room_id": 573893, "cover": "https://i0.hdslb.com/bfs/live/cover_edit/e65a8804c10d01628d041d0bb12de1c9d4b03247.jpg", "face": "https://i1.hdslb.com/bfs/face/d1d3c3839a17417cd250b03a397628f408b96a35.jpg", "area": "虚拟Singer", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/573893"}, {"uid": 1536601294, "name": "莉蔻Liko", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "躲猫猫水友回", "online": 120954, "room_id": 1713548468, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/a8755498d821a9f6cccd675c210c496bb1a2f2fd.jpg", "face": "https://i1.hdslb.com/bfs/face/4612a5daed663b841d3b6bdb53929297244184c5.jpg", "area": "虚拟日常", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/1713548468"}, {"uid": 51030552, "name": "星汐Seki", "bucket": "PSP", "group_name": "P-SP", "live_status": 1, "title": "家用3D·小聊！", "online": 90626, "room_id": 1603600, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/47abc95315bd0b0085da6a9a3bc1ccc80cb74725.jpg", "face": "https://i0.hdslb.com/bfs/face/d39fe87830e6bc8484334b511e9fb6875cc3f798.webp", "area": "虚拟日常", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/1603600"}, {"uid": 1125641408, "name": "犬绒Mofu", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "汪汪", "online": 87121, "room_id": 1791260716, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/325c1e53fbc92bc38a22050847445d1bafa7c12b.jpg", "face": "https://i2.hdslb.com/bfs/face/d9a08b44f608c86f36ce9a0b05fe34735a84bf58.jpg", "area": "虚拟日常", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/1791260716"}, {"uid": 1149064559, "name": "十六萤Izayoi", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "开饭！", "online": 79353, "room_id": 1741667419, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/0033a7daec5d83f2faabf411ab2f91dc6e646a94.jpg", "face": "https://i2.hdslb.com/bfs/face/feef955bff1d3444007bccf6385b3a9aacf68529.jpg", "area": "虚拟日常", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/1741667419"}, {"uid": 690608693, "name": "勾檀Mayumi", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "【无畏契约手游】我将天赋带到手游", "online": 46781, "room_id": 22778610, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/5a5e9f0e6f4319c2ba6eb475b6b1bea5efa291f6.jpg", "face": "https://i2.hdslb.com/bfs/face/1fb69d482db5d033fe1e43ed112a51821f2c6ec2.jpg", "area": "无畏契约：源能行动", "parent_area": "手游", "live_url": "https://live.bilibili.com/22778610"}, {"uid": 1848752274, "name": "沐毛Meme", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "跟hii和u玩O.o", "online": 40834, "room_id": 1967212929, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/db71c0a455fe7cf7c15f3bd69a798aa5032ce3ca.jpg", "face": "https://i0.hdslb.com/bfs/face/cac9730bd0dec942b34d5061b4138849e32351d8.jpg", "area": "无畏契约", "parent_area": "网游", "live_url": "https://live.bilibili.com/1967212929"}, {"uid": 14387072, "name": "小可学妹", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "看王者荣耀KPL！！", "online": 38035, "room_id": 6374209, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/747731af860c0624a1e22b00da14ce2f84c732b5.jpg", "face": "https://i2.hdslb.com/bfs/face/d0073f1a0a37009a0af44f7bf329eaf13ba3c775.jpg", "area": "王者荣耀", "parent_area": "手游", "live_url": "https://live.bilibili.com/6374209"}, {"uid": 1567394869, "name": "哎小呜Awu", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "正在解说JDG vs TTG~", "online": 19764, "room_id": 27627985, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/f048d7ae740352b6a6afc6e0b31a4f2358734211.jpg", "face": "https://i1.hdslb.com/bfs/face/166843c4a3148f7265ba649b6ab3643d71eaf203.jpg", "area": "王者荣耀", "parent_area": "手游", "live_url": "https://live.bilibili.com/27627985"}, {"uid": 480248442, "name": "北柚香Yuka", "bucket": "PSP", "group_name": "P-SP", "live_status": 1, "title": "长此以往下去，我的审美将得到提高", "online": 12538, "room_id": 22381346, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/fbfb4e0b1b52089fbc2ca5efbff6ad6f4dade199.jpg", "face": "https://i0.hdslb.com/bfs/face/834f4a1f2bf39a59ce17389a5a7b41a409885aed.jpg", "area": "虚拟Gamer", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/22381346"}, {"uid": 690608704, "name": "桃星", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "【歌】有点像现充", "online": 11801, "room_id": 23017349, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/1f2a40acf1de39664d7446796d345c4c3731fdc2.jpg", "face": "https://i1.hdslb.com/bfs/face/123be6d5f1585008729ca1abc44b901c83a4be4a.jpg", "area": "虚拟Singer", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/23017349"}, {"uid": 421267475, "name": "艾因", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "修仙！", "online": 11667, "room_id": 21403601, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/ee29088ba69c96a82ef132addc274f1e10de3eba.jpg", "face": "https://i2.hdslb.com/bfs/face/192951a5ed432428542b5051f673105d87723cf6.jpg", "area": "虚拟日常", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/21403601"}, {"uid": 1116072703, "name": "莱恩Leo", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "魔兽人能飞合练！！", "online": 11280, "room_id": 25788858, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/6ffa14f4efc77291f2857edc0e1bb514d8c6b89f.jpg", "face": "https://i1.hdslb.com/bfs/face/effa966d953fdf923a1d92be731359a29d53d6cd.jpg", "area": "虚拟男V", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/25788858"}, {"uid": 1085959883, "name": "妮慕Nimue", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "现在出现的是 小妮唱歌", "online": 9017, "room_id": 1861373970, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/14d7df9935dd028a42b38fbbb5ece92e0adeb098.jpg", "face": "https://i2.hdslb.com/bfs/face/79074c76238593a4fb8a1c1177e3c53667002c17.jpg", "area": "虚拟Singer", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/1861373970"}, {"uid": 88271743, "name": "尾幼mayori", "bucket": "PSP", "group_name": "P-SP", "live_status": 1, "title": "【英雄联盟】混乱的驴村水友赛！", "online": 7549, "room_id": 25755118, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/9d076a667d369c33232ca659d3123740da8960bf.jpg", "face": "https://i1.hdslb.com/bfs/face/8c3190656561b4f971809213e206bae3908c7fac.jpg", "area": "虚拟日常", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/25755118"}, {"uid": 1296515170, "name": "未知夜Michiya", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "魔兽人集合！！！", "online": 6519, "room_id": 27628030, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/e51b600fd6c6c4d7af8f75cd5622131761febcff.jpg", "face": "https://i1.hdslb.com/bfs/face/04037e9f34c56efeec1797a17bd0218cf456a092.jpg", "area": "虚拟Gamer", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/27628030"}, {"uid": 392505232, "name": "安堂いなり", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "静谧田园，种地的时间", "online": 2514, "room_id": 21224291, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/5e514f84dec8d5c821e7d789d18e8fc3027e71f0.jpg", "face": "https://i1.hdslb.com/bfs/face/ad7464941000379d8088ccbd44b10e5d5435af7b.jpg", "area": "虚拟Gamer", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/21224291"}, {"uid": 2039332008, "name": "雪烛", "bucket": "VR", "group_name": "VirtuaReal", "live_status": 1, "title": "来点老vrg大米竞速", "online": 0, "room_id": 31368697, "cover": "https://i0.hdslb.com/bfs/live/new_room_cover/2fb0d708612376bff5cf235b8b52be1b165b8145.jpg", "face": "https://i0.hdslb.com/bfs/face/9e6b6a8824a48ac4ea2632052e69f9f61e4754ea.jpg", "area": "虚拟日常", "parent_area": "虚拟主播", "live_url": "https://live.bilibili.com/31368697"}]};</script>
+<!--EMBED_STATUS-->
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let cache = null;
+    const isFile = location.protocol === "file:";
+
+    function fmtNum(n) {
+      n = Number(n) || 0;
+      if (n >= 10000) return (n / 10000).toFixed(1) + "万";
+      return String(n);
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function render() {
+      if (!cache) return;
+      const filter = $("filter").value;
+      const live = (cache.live || []).filter(r => filter === "ALL" || r.bucket === filter);
+      const c = cache.counts || {};
+      $("updated").textContent = "数据更新于 " + (cache.updated_at || "—");
+      $("stats").innerHTML = [
+        `<span class="pill">开播 <strong>${c.live ?? 0}</strong> / 名单 ${c.roster ?? 0}</span>`,
+        `<span class="pill vr">VR <strong>${c.VR_live ?? 0}</strong></span>`,
+        `<span class="pill psp">PSP <strong>${c.PSP_live ?? 0}</strong></span>`,
+      ].join("");
+
+      const grid = $("grid");
+      grid.innerHTML = "";
+      if (!live.length) {
+        $("empty").hidden = false;
+        return;
+      }
+      $("empty").hidden = true;
+      for (const r of live) {
+        const a = document.createElement("a");
+        a.className = "card";
+        a.href = r.live_url || `https://space.bilibili.com/${r.uid}`;
+        a.target = "_blank";
+        a.rel = "noopener";
+        const cover = (r.cover || "").replace(/'/g, "%27");
+        a.innerHTML = `
+          <div class="cover" style="background-image:url('${cover}')">
+            <span class="badge ${r.bucket === "PSP" ? "psp" : "vr"}">${r.bucket}</span>
+            <span class="online">${fmtNum(r.online)} 人气</span>
+          </div>
+          <div class="body">
+            <p class="name">${escapeHtml(r.name)}</p>
+            <p class="title">${escapeHtml(r.title || "（无标题）")}</p>
+            <div class="area">${escapeHtml([r.parent_area, r.area].filter(Boolean).join(" · "))}</div>
+          </div>`;
+        grid.appendChild(a);
+      }
+    }
+
+    async function load() {
+      if (typeof window.__STATUS__ === "object" && window.__STATUS__) {
+        cache = window.__STATUS__;
+        $("err").hidden = true;
+        if (isFile) {
+          $("blurb").textContent = "这是打包好的单文件看板（可直接双击打开）。要更新数据请再跑一次「一键本地预览.bat」。点卡片进直播间。";
+        }
+        render();
+        return;
+      }
+      if (isFile) {
+        $("err").hidden = false;
+        $("err").textContent = "直接打开空模板没用。请双击同目录的「VR-PSP开播看板.html」，或先运行「一键本地预览.bat」。";
+        $("updated").textContent = "未加载";
+        return;
+      }
+      try {
+        const res = await fetch("./status.json?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        cache = await res.json();
+        $("err").hidden = true;
+        render();
+      } catch (e) {
+        $("err").hidden = false;
+        $("err").textContent = "读不到 status.json（站点可能还没部署/刷新）。";
+        $("updated").textContent = "未加载";
+      }
+    }
+
+    $("filter").addEventListener("change", render);
+    $("reload").addEventListener("click", load);
+    load();
+    if (!isFile) setInterval(load, 15000);
+  </script>
+</body>
+</html>

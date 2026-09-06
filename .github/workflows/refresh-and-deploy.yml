@@ -1,0 +1,58 @@
+name: Refresh live status & deploy Pages
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "roster.json"
+      - "index.html"
+      - "scripts/**"
+      - ".github/workflows/refresh-and-deploy.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refresh live status
+        run: python scripts/monitor.py --once
+
+      - name: Pack static site
+        run: |
+          mkdir -p _site
+          cp index.html status.json roster.json _site/
+          # 单文件看板也挂出去，方便有人下载后离线双击
+          if [ -f "VR-PSP开播看板.html" ]; then
+            cp "VR-PSP开播看板.html" _site/
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: refresh
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
