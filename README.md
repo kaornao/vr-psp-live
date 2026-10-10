@@ -33,7 +33,7 @@
 因此改为**从外部可靠地触发 `workflow_dispatch`**：
 
 1. 本机 Windows 计划任务每 10 分钟用已登录的 `gh` 触发一次（电脑开机时保持分钟级更新）；
-2. 需要 24 小时不断时，用外部定时服务带细粒度令牌调用 GitHub API 触发同一个工作流。
+2. 需要 24 小时不断时，用 [`cron-trigger/`](cron-trigger/部署说明.md) 里的 Cloudflare Worker + Cron（每 10 分钟调 GitHub API 触发同一个工作流，令牌只存在自己的 Cloudflare Secret 里）；也可以改用任何支持 POST + 自定义请求头的免费定时服务。
 
 `schedule` 保留作为兜底。工作流单次约 30 秒，只把状态数据放进部署产物，不改动仓库文件，不污染提交历史。
 页面每 30 秒读取一次 `status.json`，并显示北京时间与“x 分钟前”。
