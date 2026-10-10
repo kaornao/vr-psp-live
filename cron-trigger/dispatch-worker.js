@@ -8,7 +8,7 @@
  *
  * 需要配置：
  *   Secret  GH_TOKEN  细粒度令牌：仅 kaornao/vr-psp-live、仅 Actions: Read and write
- *   Cron    */10 * * * *      （Settings → Triggers → Cron Triggers 添加）
+ *   Cron    每 10 分钟触发一次（在 Settings → Triggers → Cron Triggers 添加；表达式见同目录 部署说明.md）
  * 可选：
  *   Secret  RUN_KEY   配置后可用 /run?key=<值> 手动触发一次，便于自检
  *
