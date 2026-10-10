@@ -23,6 +23,20 @@
 公开站延迟大约几分钟到十几分钟（GitHub 定时任务本身会漂）。  
 本机 `start-live.bat` 更接近实时（约 45 秒级）。
 
+### 在线更新的真实机制（2026-10-10 更新）
+
+线上数据由 GitHub Actions 的 `Refresh live status & deploy Pages` 工作流抓取并部署。
+**B 站风控按 IP 段拦截 Cloudflare 出口**：实测 GET/POST、带与不带 Cookie、经公共代理，全部返回 HTTP 412，
+所以抓取不能放在 Cloudflare Worker 上；而 GitHub Actions 的出口一直正常（累计 2000+ 次成功运行）。
+
+问题只出在“叫醒”：GitHub 自己的 `schedule` 是尽力而为，实测线上部署间隔漂到 **3 小时 54 分 ~ 7 小时 17 分**。
+因此改为**从外部可靠地触发 `workflow_dispatch`**：
+
+1. 本机 Windows 计划任务每 10 分钟用已登录的 `gh` 触发一次（电脑开机时保持分钟级更新）；
+2. 需要 24 小时不断时，用外部定时服务带细粒度令牌调用 GitHub API 触发同一个工作流。
+
+`schedule` 保留作为兜底。工作流单次约 30 秒，只把状态数据放进部署产物，不改动仓库文件，不污染提交历史。
+页面每 30 秒读取一次 `status.json`，并显示北京时间与“x 分钟前”。
 ## 文件
 
 | 文件 | 作用 |

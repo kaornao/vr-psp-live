@@ -162,6 +162,17 @@
     let cache = null;
     const isFile = location.protocol === "file:";
 
+    // 数据源：本站 status.json（由 GitHub Actions 工作流定时抓取并部署）。
+    // 2026-10-10 记录：Cloudflare Worker 直连 B 站会被风控按 IP 段拦截（HTTP 412），
+    // 换方法、换请求头、带 Cookie 均无效，因此不再使用 Worker 取数。
+    // 以后要加数据源，往 STATUS_SOURCES 里追加 { url, label } 即可，按顺序回退。
+    const STATUS_SOURCES = [];
+    if (!isFile) {
+      STATUS_SOURCES.push({ url: "./status.json", label: "本站快照" });
+    }
+    const POLL_MS = 30000;
+    let lastSourceLabel = "";
+
     function fmtNum(n) {
       n = Number(n) || 0;
       if (n >= 10000) return (n / 10000).toFixed(1) + "万";
@@ -181,7 +192,8 @@
       const filter = $("filter").value;
       const live = (cache.live || []).filter(r => filter === "ALL" || r.bucket === filter);
       const c = cache.counts || {};
-      $("updated").textContent = "数据更新于 " + (cache.updated_at || "—");
+      const stamp = fmtStamp(cache);
+      $("updated").textContent = "数据更新于 " + stamp + (lastSourceLabel ? " · " + lastSourceLabel : "");
       $("stats").innerHTML = [
         `<span class="pill">开播 <strong>${c.live ?? 0}</strong> / 名单 ${c.roster ?? 0}</span>`,
         `<span class="pill vr">VR <strong>${c.VR_live ?? 0}</strong></span>`,
@@ -232,23 +244,48 @@
         $("updated").textContent = "未加载";
         return;
       }
-      try {
-        const res = await fetch("./status.json?t=" + Date.now(), { cache: "no-store" });
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        cache = await res.json();
-        $("err").hidden = true;
-        render();
-      } catch (e) {
-        $("err").hidden = false;
-        $("err").textContent = "读不到 status.json（站点可能还没部署/刷新）。";
-        $("updated").textContent = "未加载";
+      let lastError = null;
+      for (const src of STATUS_SOURCES) {
+        try {
+          const ctl = new AbortController();
+          const timer = setTimeout(() => ctl.abort(), 8000);
+          const res = await fetch(src.url + (src.url.includes("?") ? "&" : "?") + "t=" + Date.now(), {
+            cache: "no-store",
+            signal: ctl.signal,
+          });
+          clearTimeout(timer);
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          if (!data || !data.counts) throw new Error("返回内容不是看板数据");
+          cache = data;
+          lastSourceLabel = src.label + (data.stale ? "（缓存回退）" : "");
+          $("err").hidden = true;
+          render();
+          return;
+        } catch (e) {
+          lastError = e;
+        }
       }
+      cache = null;
+      $("err").hidden = false;
+      $("err").textContent = "两个数据源都读不到（" + (lastError ? lastError.message : "未知错误") + "）。";
+      $("updated").textContent = "未加载";
+    }
+
+    function fmtStamp(d) {
+      const epoch = Number(d.updated_at_epoch) || (d.updated_at ? Date.parse(d.updated_at) : 0);
+      if (!epoch) return d.updated_at || "—";
+      const bj = new Date(epoch + 8 * 3600 * 1000);
+      const s = bj.toISOString().replace("T", " ").slice(0, 19);
+      const mins = Math.max(0, Math.round((Date.now() - epoch) / 60000));
+      const rel = mins < 1 ? "刚刚" : (mins < 60 ? mins + " 分钟前" : Math.round(mins / 60) + " 小时前");
+      return s + "（" + rel + "）";
     }
 
     $("filter").addEventListener("change", render);
     $("reload").addEventListener("click", load);
     load();
-    if (!isFile) setInterval(load, 15000);
+    if (!isFile) setInterval(load, POLL_MS);
   </script>
 </body>
 </html>

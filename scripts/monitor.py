@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -78,8 +80,12 @@ def fetch_live_map(uids: list[int]) -> dict[str, dict]:
     return out
 
 
+BJ_TZ = ZoneInfo("Asia/Shanghai")
+
+
 def merge_status(roster: dict, live_map: dict[str, dict]) -> dict:
-    now = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+    now_dt = datetime.now(BJ_TZ)
+    now = now_dt.isoformat(timespec="seconds")
     live_rows = []
     offline = 0
     for m in roster.get("members") or []:
@@ -110,6 +116,9 @@ def merge_status(roster: dict, live_map: dict[str, dict]) -> dict:
     live_rows.sort(key=lambda r: (-int(r.get("online") or 0), r["bucket"], r["name"]))
     return {
         "updated_at": now,
+        "updated_at_utc": now_dt.astimezone(timezone.utc).isoformat(timespec="seconds"),
+        "updated_at_epoch": int(now_dt.timestamp() * 1000),
+        "source": "github-actions" if os.environ.get("GITHUB_ACTIONS") else "local",
         "counts": {
             "live": len(live_rows),
             "offline": offline,
@@ -161,6 +170,13 @@ def once() -> dict:
 
 
 def main() -> int:
+    # 中文 CMD 下标题里的 emoji 可能超过控制台编码，改为替换而不是抛错
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except Exception:
+            pass
+
     ap = argparse.ArgumentParser(description="监控 VirtuaReal / P-SP 开播状态")
     ap.add_argument("--once", action="store_true")
     ap.add_argument("--interval", type=int, default=DEFAULT_INTERVAL_S)
