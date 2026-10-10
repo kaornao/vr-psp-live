@@ -32,8 +32,8 @@
 问题只出在“叫醒”：GitHub 自己的 `schedule` 是尽力而为，实测线上部署间隔漂到 **3 小时 54 分 ~ 7 小时 17 分**。
 因此改为**从外部可靠地触发 `workflow_dispatch`**：
 
-1. 本机 Windows 计划任务每 10 分钟用已登录的 `gh` 触发一次（电脑开机时保持分钟级更新）；
-2. 需要 24 小时不断时，用 [`cron-trigger/`](cron-trigger/部署说明.md) 里的 Cloudflare Worker + Cron（每 10 分钟调 GitHub API 触发同一个工作流，令牌只存在自己的 Cloudflare Secret 里）；也可以改用任何支持 POST + 自定义请求头的免费定时服务。
+1. **云端定时（主力，24/7）**：Cloudflare Worker + Cron Trigger 每 5 分钟调用 GitHub API 触发同一个工作流，代码与步骤见 cron-trigger/ 目录；令牌只存在自己的 Cloudflare Secret 里。
+2. **手动一键刷新（备用）**：双击桌面上的 刷新看板.cmd 立即触发一次，约 30 秒后再刷新页面即可；也可以在仓库 Actions 页面点 Run workflow。
 
 `schedule` 保留作为兜底。工作流单次约 30 秒，只把状态数据放进部署产物，不改动仓库文件，不污染提交历史。
 页面每 30 秒读取一次 `status.json`，并显示北京时间与“x 分钟前”。
